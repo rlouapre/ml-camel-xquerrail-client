@@ -1,0 +1,64 @@
+// Load ml-gradle for quickly creating a REST API application
+buildscript {
+  repositories {
+    mavenCentral()
+    maven {url "http://developer.marklogic.com/maven2/"}
+    maven {url "http://rjrudin.github.io/marklogic-java/releases"}
+  }
+  
+  dependencies {
+    classpath "com.rjrudin:ml-gradle:2.0b1"
+  }
+}
+
+apply plugin: 'ml-gradle'
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+repositories {
+  mavenCentral()
+  maven {url "http://developer.marklogic.com/maven2/"}
+  maven {url "http://repository.cloudera.com/artifactory/cloudera-repos/" }
+  maven {url "http://rjrudin.github.io/marklogic-java/releases"}
+}
+
+dependencies {    
+  // Camel component for talking XCC to MarkLogic
+  compile "com.rjrudin:ml-camel-xcc:0.3"
+  compile "org.apache.camel:camel-spring:2.15.4"
+  
+  runtime "com.rjrudin:ml-camel-mlcp:0.6"
+  runtime "org.apache.camel:camel-csv:2.15.4"
+  runtime "org.apache.camel:camel-velocity:2.15.4"
+  runtime "org.apache.camel:camel-http4:2.15.4"
+  runtime "org.apache.camel:camel-metrics:2.15.4"
+  
+  runtime "org.slf4j:slf4j-api:1.7.7"
+  runtime "org.slf4j:slf4j-log4j12:1.7.7"
+  runtime "log4j:log4j:1.2.17"
+  
+  compile "com.fasterxml.jackson.core:jackson-core:2.6.3"
+  compile "com.fasterxml.jackson.core:jackson-databind:2.6.3"
+  compile "com.fasterxml.jackson.core:jackson-annotations:2.6.3"
+  
+}
+
+ext {
+  mlAppConfig {
+    modulePaths = ["src/main/ml-modules"]
+  }
+}
+
+task camelRun(type: JavaExec) {
+  main = 'org.apache.camel.spring.Main'
+  classpath = sourceSets.main.runtimeClasspath
+  systemProperties = [
+    "mlContentDatabase": "${mlAppName}-content",
+    "mlHost": mlHost,
+    "mlXdbcPort": mlRestPort,
+    "mlUsername": mlUsername,
+    "mlPassword": mlPassword,
+	"mlRestXquerrailPort": mlRestXquerrailPort,
+	"mlXdbcXquerrailPort": mlXdbcXquerrailPort
+  ]
+}
