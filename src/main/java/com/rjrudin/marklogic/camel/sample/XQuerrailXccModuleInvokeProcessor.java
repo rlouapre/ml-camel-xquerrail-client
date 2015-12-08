@@ -6,6 +6,8 @@ import java.net.URISyntaxException;
 import org.apache.camel.Exchange;
 import org.apache.camel.Handler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.marklogic.xcc.ContentSource;
 import com.marklogic.xcc.ContentSourceFactory;
 import com.marklogic.xcc.Request;
@@ -31,8 +33,9 @@ import com.marklogic.xcc.types.XdmVariable;
  * you can create the precise XML you want before ingesting it either via mlcp
  * or XCC.
  */
-public class XccModuleInvokeProcessor {
+public class XQuerrailXccModuleInvokeProcessor {
 
+	
 	@Handler
 	public void processQuery(Exchange exchange) {
 		URI uri;
@@ -42,13 +45,28 @@ public class XccModuleInvokeProcessor {
 
 			Session session = contentSource.newSession();
 
-			Request request = session.newModuleInvoke("/ext/document-insert.xqy");
+			Request request = session.newModuleInvoke("/main/_framework/dispatchers/dispatcher.web.xqy");
 
 			// create an unnamed xs:string value
-			XdmValue value = ValueFactory.newElement(exchange.getIn().getBody());
+			ObjectMapper om = new ObjectMapper();
+			ObjectNode onode = om.createObjectNode();
+			// onode.put("_id", "jsonNode_id");
+			// onode.put("otherField", "otherValue");
+
+			onode.put("type", "request:request");
+			onode.put("request:method", "PUT");
+			onode.put("request:route", "default_controller_action_format");
+			onode.put("request:application", "app-test");
+			onode.put("request:controller", "documents");
+			onode.put("request:action", "insert");
+			onode.put("request:format", "xml");
+			onode.put("request:param::uri", exchange.getIn().getHeader("MlXccUri").toString());
+//			onode.put("request:body", exchange.getIn().getBody().toString());
+
+			XdmValue value = ValueFactory.newJSObject(onode);
 
 			// create a new XName object referencing the above namespace
-			XName xname = new XName("http://xquerrail.com/domain", "CONTENT");
+			XName xname = new XName("http://xquerrail.com/domain", "REQUEST-EXTERNAL");
 
 			// Create a Variable (name + value) instance
 			XdmVariable contentVariable = ValueFactory.newVariable(xname, value);
@@ -56,9 +74,18 @@ public class XccModuleInvokeProcessor {
 			// bind the Variable to the Request
 			request.setVariable(contentVariable);
 
-			request.setNewStringVariable("http://xquerrail.com/domain", "URI",
-					exchange.getIn().getHeader("MlXccUri").toString());
+			// create an unnamed xs:string value
+			XdmValue bodyValue = ValueFactory.newElement(exchange.getIn().getBody());
 
+			// create a new XName object referencing the above namespace
+			XName bodyXName = new XName("http://xquerrail.com/domain", "REQUEST-BODY-EXTERNAL");
+
+			// Create a Variable (name + value) instance
+			XdmVariable bodyVariable = ValueFactory.newVariable(bodyXName, bodyValue);
+
+			// bind the Variable to the Request
+			request.setVariable(bodyVariable);
+			
 			ResultSequence rs = session.submitRequest(request);
 
 			exchange.getIn().setBody(rs.asString());

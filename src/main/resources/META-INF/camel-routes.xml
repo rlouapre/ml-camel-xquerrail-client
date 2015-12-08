@@ -21,6 +21,9 @@
 	<!-- Custom class for Xcc Module Invoke -->
 	<bean id="xccModuleInvokeProcessor"
 		class="com.rjrudin.marklogic.camel.sample.XccModuleInvokeProcessor" />
+		
+	<bean id="xquerrailXccModuleInvokeProcessor"
+		class="com.rjrudin.marklogic.camel.sample.XQuerrailXccModuleInvokeProcessor" />
 
 	<bean id="xquerrailInitializeProcessor"
 		class="com.rjrudin.marklogic.camel.sample.XquerrailInitializeProcessor" />
@@ -175,6 +178,41 @@
 			<log message="Done" />
 		</route>
 
+		<route id="ml-xcc-module-invoke">
+			<from uri="file://inbox/xcc-module-invoke" />
+			<log message="Start" />
+			<to uri="metrics:timer:ml-xcc-module-invoke.counter?action=start" />
+			<split streaming="true" parallelProcessing="true">
+				<tokenize token="\n" />
+				<setHeader headerName="docId">
+					<simple>${id}</simple>
+				</setHeader>
+				<setHeader headerName="MlXccUri">
+					<simple>/trades/${header.docId}.xml</simple>
+				</setHeader>
+				<setHeader headerName="XccUri">
+					<simple>xcc://{{mlUsername}}:{{mlPassword}}@{{mlHost}}:{{mlXdbcPort}}
+					</simple>
+				</setHeader>
+				<setHeader headerName="MlContentDatabase">
+					<simple>{{mlContentDatabase}}</simple>
+				</setHeader>
+				<convertBodyTo type="java.lang.String" />
+				<to uri="metrics:timer:ml-xcc-module-invoke.insert.counter?action=start" />
+				<to uri="bean:xccModuleInvokeProcessor" />
+				<to uri="metrics:timer:ml-xcc-module-invoke.insert.counter?action=stop" />
+				<!-- <log message="Uri: ${header.MlXccUri} - Body: ${body}" /> -->
+			</split>
+			<to uri="metrics:timer:ml-xcc-module-invoke.counter?action=stop" />
+			<log message="Done" />
+		</route>
+
+		<route id="ml-xquerrail-initialize">
+			<from uri="timer://runOnce?repeatCount=1&amp;delay=5000" />
+			<to
+				uri="http4://{{mlHost}}:{{mlRestXquerrailPort}}/initialize.xqy?authUsername={{mlUsername}}&amp;authPassword={{mlPassword}}&amp;authenticationPreemptive=true" />
+		</route>
+
 		<route id="ml-xquerrail">
 			<from uri="file://inbox/xquerrail" />
 			<log message="Start" />
@@ -201,7 +239,7 @@
 			<log message="Done" />
 		</route>
 
-		<route id="xquerrail-initialize">
+		<route id="xcc-xquerrail-initialize">
 			<from uri="timer://runOnce?repeatCount=1&amp;delay=5000" />
 			<setHeader headerName="XccUri">
 				<simple>xcc://{{mlUsername}}:{{mlPassword}}@{{mlHost}}:{{mlXdbcXquerrailPort}}
@@ -228,7 +266,7 @@
 				</setHeader>
 				<convertBodyTo type="java.lang.String" />
 				<to uri="metrics:timer:xquerrail.xcc.insert.counter?action=start" />
-				<to uri="bean:xccModuleInvokeProcessor" />
+				<to uri="bean:xquerrailXccModuleInvokeProcessor" />
 				<to uri="metrics:timer:xquerrail.xcc.insert.counter?action=stop" />
 			</split>
 			<to uri="metrics:timer:xquerrail.xcc.counter?action=stop" />
